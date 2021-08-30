@@ -31,6 +31,10 @@ const (
 
 	// NetHTTPS HTTPS protocol
 	NetHTTPS = "https"
+
+	QueryLogTypeMySQL        = "mysql"
+	QueryLogTypeCSV          = "csv"
+	QueryLogTypeCSVPerClient = "csv-client"
 )
 
 // nolint:gochecknoglobals
@@ -281,8 +285,12 @@ type CachingConfig struct {
 
 // QueryLogConfig configuration for the query logging
 type QueryLogConfig struct {
-	Dir              string `yaml:"dir"`
+	// Deprecated
+	Dir string `yaml:"dir"`
+	// Deprecated
 	PerClient        bool   `yaml:"perClient"`
+	Target           string `yaml:"target"`
+	Type             string `yaml:"type"`
 	LogRetentionDays uint64 `yaml:"logRetentionDays"`
 }
 
@@ -314,6 +322,25 @@ func LoadConfig(path string, mandatory bool) {
 
 	if cfg.LogFormat != log.CfgLogFormatText && cfg.LogFormat != log.CfgLogFormatJSON {
 		log.Log().Fatal("LogFormat should be 'text' or 'json'")
+	}
+
+	queryLogType := strings.ToLower(cfg.QueryLog.Type)
+	if queryLogType != "" && queryLogType != QueryLogTypeMySQL &&
+		queryLogType != QueryLogTypeCSV && queryLogType != QueryLogTypeCSVPerClient {
+		log.Log().Fatalf("queryLog.type should be one of: %s",
+			strings.Join([]string{QueryLogTypeMySQL, QueryLogTypeCSV, QueryLogTypeCSVPerClient}, ", "))
+	}
+
+	if cfg.QueryLog.Dir != "" {
+		log.Log().Warnf("queryLog.Dir is deprecated, use 'queryLog.target' instead")
+
+		if cfg.QueryLog.Target == "" {
+			cfg.QueryLog.Target = cfg.QueryLog.Dir
+		}
+
+		if cfg.QueryLog.Type == "" {
+			cfg.QueryLog.Type = QueryLogTypeCSV
+		}
 	}
 
 	config = &cfg
